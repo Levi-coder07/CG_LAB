@@ -1,155 +1,211 @@
-#include<iostream>
-#include<glad/glad.h>
-#include<GLFW/glfw3.h>
-#include<math.h>
-#include"shaderClass.h"
-#include"VAO.h"
-#include"VBO.h"
-#include"EBO.h"
+#include <iostream>
+#include <cmath>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <vector>
+using namespace std;
 
 
-// Vertices coordinates
-GLfloat vertices[] =
-{ //               COORDINATES                  /     COLORS           //
-	-0.25f, -0.0f * float(sqrt(3)) * 1 / 3, 0.0f,     0.1f, 0.1f,  0.1f, // Lower left corner
-	 0.75f, -0.0f * float(sqrt(3)) * 1 / 3, 0.0f,     0.0f, 0.1f, 0.1f, // Lower right corner
-	 0.25f,  0.75f * float(sqrt(3)) * 2 / 3, 0.0f,      0.0f, 0.1f, 0.1f, // Upper corner
-	0.0f, 1.50f * float(sqrt(3)) * 1 / 6, 0.0f,     0.0f, 0.1f, 0.1f, // Inner left
-	 0.5f, 1.50f * float(sqrt(3)) * 1 / 6, 0.0f,     0.0f, 0.1f, 0.1f, // Inner right
-	 0.25f, -0.0f * float(sqrt(3)) * 1 / 3, 0.0f,     0.94f, 0.82f, 0.86f,// Inner down
-     -0.50f, 1.50f * float(sqrt(3)) * 1 / 6, 0.0f,    0.97, 0.93, 0.46,//
-      0.75f, 1.50f * float(sqrt(3)) * 1 / 6, 0.0f,     0.5f, 1.0f, 1.0f,
-      -0.25f, -1.5f * float(sqrt(3)) * 1 / 6, 0.0f,      0.0f, 0.1f, 0.1f,
-      0.25f, -1.5f * float(sqrt(3)) * 1 / 6, 0.0f,     0.0f, 0.1f, 0.1f,
-      -0.75f, -1.5f * float(sqrt(3)) * 1 / 6, 0.0f,     0.96f, 0.33f, 0.44f,
-      0.75f, -1.5f * float(sqrt(3)) * 1 / 6, 0.0f,     0.0f, 1.0f, 0.0f,
-       0.0f,  -0.75f * float(sqrt(3)) * 2 / 3, 0.0f,     0.61f, 0.69f, 0.85f
-};
+// Vertex shader source code
+const char* vertexShaderSource = R"(
+    #version 330 core
 
-// Indices for vertices order
-GLuint indices[] =
-{
-	6,3,0,
-	4,5,1
-};
+    layout (location = 0) in vec2 position;
+    out vec3 color;
 
+    uniform float rotationAngle;
+    uniform mat4 rotationMatrix;
+    void main()
+    {
+        float angle = rotationAngle + atan(position.y, position.x);
+        float radius = length(position);
 
+        float x = radius * cos(angle);
+        float y = radius * sin(angle);
+
+        gl_Position =  rotationMatrix * vec4(x, y, 0.0, 1.0);
+        color = vec3(abs(cos(angle)), abs(sin(angle)), abs(cos(angle + 3.0)));
+    }
+)";
+
+// Fragment shader source code
+const char* fragmentShaderSource = R"(
+    #version 330 core
+
+    in vec3 color;
+    out vec4 FragColor;
+
+    void main()
+    {
+        FragColor = vec4(color, 1.0);
+    }
+)";
 
 int main()
 {
-	// Initialize GLFW
-	glfwInit();
-    
-	// Tell GLFW what version of OpenGL we are using 
-	// In this case we are using OpenGL 3.3
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	// Tell GLFW we are using the CORE profile
-	// So that means we only have the modern functions
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    const int NUM_SEGMENTS = 180;
 
-	// Create a GLFWwindow object of 800 by 800 pixels, naming it "YoutubeOpenGL"
-	GLFWwindow* window = glfwCreateWindow(1000, 1000, "OpenGL", NULL, NULL);
-	// Error check if the window fails to create
+    // Initialize GLFW
+    if (!glfwInit())
+    {
+        std::cout << "Failed to initialize GLFW" << std::endl;
+        return -1;
+    }
 
-	if (window == NULL)
-	{
-		std::cout << "Failed to create GLFW window" << std::endl;
-		glfwTerminate();
-		return -1;
-	}
-	// Introduce the window into the current context
-	glfwMakeContextCurrent(window);
+    // Create a GLFW window
+    GLFWwindow* window = glfwCreateWindow(800, 800, "Newton Disc", nullptr, nullptr);
+    if (window == nullptr)
+    {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
 
-	//Load GLAD so it configures OpenGL
-	gladLoadGL();
-	// Specify the viewport of OpenGL in the Window
-	// In this case the viewport goes from x = 0, y = 0, to x = 800, y = 800
-	glViewport(0, 0, 800, 800);
+    // Make the window's context current
+    glfwMakeContextCurrent(window);
 
+    // Load GLAD
+    if (!gladLoadGL())
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
 
+    // Create and compile shaders
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+    glCompileShader(vertexShader);
 
-	// Generates Shader object using shaders defualt.vert and default.frag
-   
-	Shader shaderProgram("C:\\Users\\Levi\\Downloads\\MyProject\\src\\default.vert", "C:\\Users\\Levi\\Downloads\\MyProject\\src\\default.frag");
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
+    glCompileShader(fragmentShader);
 
+    // Check for shader compilation errors
+    GLint success;
+    GLchar infoLog[512];
 
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(vertexShader, 512, nullptr, infoLog);
+        std::cout << "Vertex shader compilation failed: " << infoLog << std::endl;
+    }
 
-	// Generates Vertex Array Object and binds it
-    
-	VAO VAO1;
-    
-	VAO1.Bind();
-    
-	// Generates Vertex Buffer Object and links it to vertices
-	VBO VBO1(vertices, sizeof(vertices));
-	// Generates Element Buffer Object and links it to indices
-	EBO EBO1(indices, sizeof(indices));
-     
-	// Links VBO attributes such as coordinates and colors to VAO
-	VAO1.LinkAttrib(VBO1, 0, 3, GL_FLOAT, 6 * sizeof(float), (void*)0);
-	VAO1.LinkAttrib(VBO1, 1, 3, GL_FLOAT, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-	// Unbind all to prevent accidentally modifying them
-	VAO1.Unbind();
-	VBO1.Unbind();
-	EBO1.Unbind();
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(fragmentShader, 512, nullptr, infoLog);
+        std::cout << "Fragment shader compilation failed: " << infoLog << std::endl;
+    }
 
-	// Gets ID of uniform called "scale"
-	GLuint uniID = glGetUniformLocation(shaderProgram.ID, "scale");
+    // Create shader program and link shaders
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
 
-	
-	// Main while loop
-	while (!glfwWindowShouldClose(window))
-	{
-		// Specify the color of the background
-		glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
-		// Clean the back buffer and assign the new color to it
-		glClear(GL_COLOR_BUFFER_BIT);
-		 float time = glfwGetTime();
-		float scaleFactor1 = 0.65f + sin(time) * 0.6f; // Scale factor for the first triangle
-		float scaleFactor2 = 0.65f + sin(time) * 0.7f; // Scale factor for the second triangle
-		glm::vec3 changingColor(scaleFactor1, scaleFactor2 , scaleFactor2);
+    // Check for shader program linking errors
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success)
+    {
+        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+        std::cout << "Shader program linking failed: " << infoLog << std::endl;
+    }
 
-// Get the location of the "baseColor" uniform
-		GLint baseColorLoc = glGetUniformLocation(shaderProgram.ID, "baseColor");
-		// Set the value of the "baseColor" uniform
-		glUniform3fv(baseColorLoc, 1, glm::value_ptr(changingColor));
-		// Tell OpenGL which Shader Program we want to use
-		shaderProgram.Activate();
-		VAO1.Bind();
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
 
-		glm::mat4 transform = glm::scale(glm::mat4(1.0f), glm::vec3(scaleFactor1));
-		glm::mat4 transform2 = glm::scale(glm::mat4(1.0f), glm::vec3(scaleFactor2));
-        // Assign transformation matrix to the uniform
-        glUniformMatrix4fv(uniID, 1, GL_FALSE, glm::value_ptr(transform));
-		// Assigns a value to the uniform; NOTE: Must always be done after activating the Shader Program
-		
-		// Bind the VAO so OpenGL knows to use it
-		
-		// Draw primitives, number of indices, datatype of indices, index of indices
-		glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT,(void*)0);
-		glUniformMatrix4fv(uniID, 1, GL_FALSE, glm::value_ptr(transform2));
-		glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT,(void*)(3 * sizeof(float)));
-        //glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
-		// Swap the back buffer with the front buffer
-		glfwSwapBuffers(window);
-		// Take care of all GLFW events
-		glfwPollEvents();
-	}
+    // Set up vertex data (circle)
+    std::vector<GLfloat> vertices;
+    std::vector<GLuint> indices;
 
+    float radius = 0.5f;
 
+    // Center vertex
+    vertices.push_back(0.0f);
+    vertices.push_back(0.0f);
 
-	// Delete all the objects we've created
-	VAO1.Delete();
-	VBO1.Delete();
-	EBO1.Delete();
-	shaderProgram.Delete();
-	// Delete window before ending the program
-	glfwDestroyWindow(window);
-	// Terminate GLFW before ending the program
-	glfwTerminate();
-	return 0;
+    // Circle vertices
+    for (int i = 0; i <= NUM_SEGMENTS; ++i)
+    {
+        float angle = 2.0f * 3.1416 * i / NUM_SEGMENTS;
+        float x = radius * std::cos(angle);
+        float y = radius * std::sin(angle);
+
+        vertices.push_back(x);
+        vertices.push_back(y);
+    }
+
+    // Circle indices
+    for (int i = 1; i <= NUM_SEGMENTS; ++i)
+    {
+        indices.push_back(0);
+        indices.push_back(i);
+        indices.push_back(i + 1);
+    }
+
+    GLuint VAO, VBO, EBO;
+
+    // Create and bind vertex array object (VAO)
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    // Create and bind vertex buffer object (VBO)
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+    // Create and bind element buffer object (EBO)
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+    // Set vertex attribute pointers
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Unbind buffers
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // Render loop
+    while (!glfwWindowShouldClose(window))
+    {
+        // Calculate rotation angle
+        float rotationAngle = glfwGetTime() *100;
+
+        // Clear the screen
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Use the shader program
+        glUseProgram(shaderProgram);
+        glm::mat4 rotationMatrix = glm::mat4(1.0f);
+rotationMatrix = glm::rotate(rotationMatrix, glm::radians(rotationAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+
+// Pass the rotation matrix to the shader
+glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "rotationMatrix"), 1, GL_FALSE, glm::value_ptr(rotationMatrix));
+
+// Draw the circle
+glBindVertexArray(VAO);
+glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+glBindVertexArray(0);
+        // Swap buffers and poll events
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    // Clean up resources
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteProgram(shaderProgram);
+
+    // Terminate GLFW
+    glfwTerminate();
+
+    return 0;
 }
