@@ -11,7 +11,47 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
+//vert
+/*#version 330 core
 
+// Positions/Coordinates
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+layout (location = 2) in vec2 aTexCoord;
+// Outputs the color for the Fragment Shader
+out vec3 color;
+
+// Controls the scale of the vertices
+uniform mat4 scale;
+// Uniform color variable
+uniform vec3 baseColor;
+out vec2 TexCoord;
+
+void main()
+{
+    // Outputs the positions/coordinates of all vertices
+    gl_Position = scale * vec4(aPos, 1.0);
+    // Assigns the colors from the Vertex Data to "color"
+    color = aColor;
+    TexCoord = aTexCoord;
+}*/
+//frag
+/*#version 330 core
+
+// Outputs colors in RGBA
+out vec4 FragColor;
+
+
+// Inputs the color from the Vertex Shader
+in vec3 color;
+in vec2 TexCoord;
+
+uniform sampler2D ourTexture;
+
+void main()
+{
+	FragColor = texture(ourTexture, TexCoord);
+}*/
 #include "stb_image.h"
 
 GLfloat vertices[] = {
